@@ -74,7 +74,7 @@ If found in git history, use `git filter-repo --replace-text` to rewrite history
 - [ ] No `Co-Authored-By` lines in any commit messages
 
 ```bash
-git log --all -p | grep -i "co-authored"
+git log --all --format="%B" | grep -i "co-authored"
 ```
 
 If found, use `git filter-repo --message-callback` to remove.
