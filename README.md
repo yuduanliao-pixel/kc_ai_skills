@@ -15,6 +15,7 @@ A collection of reusable AI agent skills for benchmarking, local search, and pro
 | [prep-repo](prep-repo/) | Prepare a project for GitHub: README conventions, commit style, sensitive data scan, broken link check |
 | [llm-benchmark](llm-benchmark/) | Automated Ollama model benchmark with CPU offload detection and markdown report generation |
 | [searxng](searxng/) | Local search integration via SearXNG for OpenClaw or any exec-based AI agent |
+| [rewrite-tone](rewrite-tone/) | Rewrite Markdown with conversational, humorous tone — turns dry docs into engaging war stories |
 
 ## Installation
 

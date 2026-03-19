@@ -15,6 +15,7 @@
 | [prep-repo](prep-repo/) | 專案上 GitHub 前的準備：README 規範、commit 風格、敏感資訊掃描、broken link 檢查 |
 | [llm-benchmark](llm-benchmark/) | Ollama 模型自動化 benchmark，含 CPU offload 偵測與 markdown 報告產生 |
 | [searxng](searxng/) | 透過 SearXNG 的本地搜尋整合，適用於 OpenClaw 或任何支援 exec 的 AI agent |
+| [rewrite-tone](rewrite-tone/) | 用詼諧口語化的風格改寫 Markdown — 把乾巴巴的技術文件變成有趣的踩坑故事 |
 
 ## 安裝
 
