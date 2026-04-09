@@ -1,5 +1,7 @@
 # banini 使用指南
 
+> **English summary:** Step-by-step setup guide for the banini skill. Layer 1: install skill + Playwright deps, run `/banini`. Layer 2: add skill-cron for scheduled runs via crontab. Layer 3: configure Telegram for push notifications. Each layer is optional — Layer 1 alone is a fully functional reverse-indicator analyzer.
+
 ## 快速開始（3 分鐘，我計時了）
 
 ### 1. 裝 skill

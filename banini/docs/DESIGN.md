@@ -1,5 +1,7 @@
 # banini — 為什麼要改寫，以及我們踩了哪些坑
 
+> **English summary:** Design rationale for rewriting [cablate/banini-tracker](https://github.com/cablate/banini-tracker) as a Claude Code skill. Key insight: Apify is just a headless browser ($10.5/mo) — we do the same locally with Playwright for free. Claude Max subscribers already have a better LLM than the original's MiniMax-M2.5 — so Claude analyzes directly, saving another $1/mo. Facebook source dropped (redundant content, aggressive anti-scraping). Total savings: $11/mo → $0.
+
 ## 原版在幹嘛
 
 [cablate/banini-tracker](https://github.com/cablate/banini-tracker) 是一個追蹤巴逆逆（8zz）社群貼文的 Node.js 程式。巴逆逆是台灣知名的「股海冥燈」— 買什麼跌什麼，賣什麼漲什麼，空什麼就飆漲。這個 tracker 的核心邏輯就是：抓她的貼文 → 用 LLM 做反指標分析 → 推 Telegram。

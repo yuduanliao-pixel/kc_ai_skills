@@ -1,5 +1,7 @@
 # skill-cron — 因為 `claude -p "/banini"` 會卡住
 
+> **English summary:** Design doc for skill-cron, a crontab-based scheduler for Claude Code skills. Born from discovering that `claude -p "/skill"` hangs silently — skills only work in interactive mode. Solution: a `headless-prompt` field in SKILL.md frontmatter + a runner script that handles crontab's minimal environment (missing PATH, USER, SHELL). Includes Telegram push via urllib and auto-rotating logs.
+
 ## 這東西為什麼存在
 
 Claude Code 的 skill 在互動模式下很好用 — 打 `/banini` 就跑。但如果你想用 crontab 定時跑呢？
