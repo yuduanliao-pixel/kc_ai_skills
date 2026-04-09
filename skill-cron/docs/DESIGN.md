@@ -69,13 +69,13 @@ headless-prompt: "Run python3 ~/.claude/skills/banini/scripts/scrape_threads.py 
 crontab（系統排程）
   → cron_runner.sh（我們的 wrapper）
     → 設好環境變數（PATH, USER, SHELL — crontab 什麼都沒有）
-    → claude --dangerously-skip-permissions -p "{prompt}"
+    → claude -p "{prompt}" --allowedTools "Bash,Read,Glob,Grep"
     → 拿到分析結果
     → 如有 Telegram config → urllib 推送
     → 寫 log，清理舊 log
 ```
 
-中間那個 `--dangerously-skip-permissions` 是因為 crontab 環境沒有人可以按「允許」。
+`--allowedTools` 指定允許的工具，這樣 `-p` 模式下不會卡在權限確認。
 
 ---
 
@@ -149,4 +149,4 @@ skill-cron 在 crontab 裡用標記區塊圍住自己的 entries：
 1. **crontab 是本地的** — 你的 Mac 關機了就不會跑。沒有雲端 fallback
 2. **Claude Max 訂閱** — `claude -p` 需要有效的登入狀態。token 過期了要重新 `claude login`
 3. **Telegram 4096 字元** — 超長報告會被截斷。但說真的，你不需要在手機上看一萬字的分析報告
-4. **`--dangerously-skip-permissions`** — 名字聽起來很危險，但在 crontab 裡沒有別的選擇。它只是跳過互動式的權限確認
+4. **`--allowedTools` 白名單** — crontab 裡沒有人可以按「允許」，所以用 `--allowedTools` 預先指定允許的工具（Bash, Read, Glob, Grep）

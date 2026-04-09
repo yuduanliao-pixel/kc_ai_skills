@@ -26,7 +26,7 @@ mkdir -p "$LOG_DIR"
 echo "[${TIMESTAMP}] Running job: ${JOB_ID}" | tee "$LOG_FILE"
 
 # Run claude in headless mode
-OUTPUT=$(claude --dangerously-skip-permissions -p "$PROMPT" --allowedTools "Bash,Read,Glob,Grep" 2>>"$LOG_FILE") || {
+OUTPUT=$(claude -p "$PROMPT" --allowedTools "Bash,Read,Glob,Grep" 2>>"$LOG_FILE") || {
     echo "[error] claude -p failed" | tee -a "$LOG_FILE"
     exit 1
 }
