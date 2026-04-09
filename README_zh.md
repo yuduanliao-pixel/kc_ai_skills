@@ -24,7 +24,7 @@
 | [spec](spec/) | Spec-driven 開發流程 — 從模糊想法到驗收結案。一個指令，自動判斷專案狀態，引導你走完：需求釐清 → 審查 → 實作 → 驗收 → 結案報告。因為「先寫再說」就是你之後要全部重寫的原因 |
 | [job-radar](job-radar/) | 求職自動化的遙控器。在 Telegram 說聲「寫信」，AI 就會讀完 JD、寫好 25 封客製化求職信、打包成 zip 傳回來 -- 你咖啡都還沒喝完。搭配 [kc_job_radar](https://github.com/KerberosClaw/kc_job_radar) 使用，Docker 必備，理智選配 |
 | [ctf-kit](ctf-kit/) | Windows 應用程式驗證繞過的實戰 playbook — VMProtect、Themida、網路驗證，都能打。從 67+ 次失敗中淬煉出來的，省你重踩一遍。附帶即用型 Frida 偵察腳本和零依賴 PE 分析器。搭配 [ljagiello/ctf-skills](https://github.com/ljagiello/ctf-skills) 覆蓋更廣的 CTF 場景 |
-| [banini](banini/) | 追蹤台灣最強反指標女神巴逆逆的 Threads 貼文，讓 Claude 直接做反指標分析。零 API 成本 — Playwright 本地抓資料，Claude 自己就是 LLM。從 [cablate/banini-tracker](https://github.com/cablate/banini-tracker) 改寫而來，省掉每月 $11 的 Apify + LLM API 費用。支援 [skill-cron](skill-cron/) 排程 |
+| [banini](banini/) | 追蹤台灣最強反指標女神巴逆逆的 Threads 貼文，讓 Claude 直接做反指標分析。零 API 成本 — Playwright 本地抓資料，Claude 自己就是 LLM。從 [cablate/banini-tracker](https://github.com/cablate/banini-tracker) 改寫而來，省掉每月 $11 的 Apify + LLM API 費用。搭配 [skill-cron](skill-cron/) 可排程 + Telegram 推播 — [使用指南](banini/docs/SETUP.md) |
 | [skill-cron](skill-cron/) | 一個管理器統治所有排程。註冊任何 skill 做 crontab 定時執行 + Telegram 推播 — 因為 `claude -p` 不支援 `/skill` 語法，總得有人把橋搭起來。設定存 `~/.claude/configs/`，日誌自動輪替，crontab entries 自動管理 |
 
 ## 安裝
