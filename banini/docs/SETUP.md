@@ -1,48 +1,60 @@
 # banini 使用指南
 
-## 快速開始（3 分鐘）
+## 快速開始（3 分鐘，我計時了）
 
-### 1. 安裝 skill
+### 1. 裝 skill
 
 ```bash
 git clone https://github.com/KerberosClaw/kc_ai_skills.git
 cp -r kc_ai_skills/banini ~/.claude/skills/
 ```
 
-### 2. 安裝依賴
+### 2. 裝依賴
 
 ```bash
 pip3 install playwright parsel nested-lookup jmespath
 python3 -m playwright install chromium
 ```
 
-### 3. 使用
+對，你需要下載一整個 Chromium。因為 Threads 是純 client-side rendering — 用 `curl` 抓到的只有一坨 CSS 變數和 React bootstrap，連一個字的貼文內容都沒有。我們試過了。
 
-在 Claude Code 互動模式中：
+### 3. 開始追蹤冥燈
 
 ```
 /banini
 ```
 
-Claude 會自動抓取巴逆逆的 Threads 貼文並進行反指標分析，結果直接顯示在對話中。
+Claude 會啟動無頭 Chromium、假裝是真人滑 Threads、攔截背景的 GraphQL 回應、解析貼文、然後用它自己的腦子做反指標分析。
 
-**這樣就能用了。** 以下是進階設定。
+就這樣。沒有 API key。沒有付費服務。沒有 `.env` 要填。
+
+**以下是進階設定 — 如果你想要完全還原原版的功能。**
 
 ---
 
-## 完整還原原版功能
+## 我想要排程 + Telegram 通知（完整還原原版）
 
-原版 [cablate/banini-tracker](https://github.com/cablate/banini-tracker) 有三個核心功能：
+原版 [cablate/banini-tracker](https://github.com/cablate/banini-tracker) 是一個 Node.js 常駐程式，每 30 分鐘抓一次貼文、用 LLM API 分析、推 Telegram。每月花 $11 美元。
 
-| 功能 | 原版做法 | 本 skill 做法 |
-|------|---------|-------------|
-| 抓取貼文 | Apify API（$10.5/月） | 本地 Playwright（免費） |
-| AI 分析 | LLM API（$1/月） | Claude 自己分析（Max 訂閱內） |
-| 定時排程 + Telegram 通知 | Node.js + node-cron | **skill-cron**（見下方） |
+我們把這三件事拆成三層，每層獨立，不想裝的可以不裝：
 
-前兩個裝完 `/banini` 就有了。要還原第三個（排程 + 通知），需要搭配 [skill-cron](../../skill-cron/)。
+```
+┌─────────────────────────────────────────┐
+│  Layer 1：/banini                       │
+│  手動跑一次，在對話裡看結果              │
+│  裝完上面三步就有了                       │
+├─────────────────────────────────────────┤
+│  Layer 2：+ skill-cron                  │
+│  自動定時執行，你不用記得開 Claude        │
+│  嗯，你還是要記得不能關機                 │
+├─────────────────────────────────────────┤
+│  Layer 3：+ Telegram                    │
+│  分析結果直接推到手機                    │
+│  在捷運上就能看今天冥燈照到誰             │
+└─────────────────────────────────────────┘
+```
 
-### Step 1：安裝 skill-cron
+### Step 1：裝 skill-cron
 
 ```bash
 cp -r kc_ai_skills/skill-cron ~/.claude/skills/
@@ -50,118 +62,83 @@ cp -r kc_ai_skills/skill-cron ~/.claude/skills/
 
 ### Step 2：設定 Telegram
 
-在 Claude Code 中：
+```
+/skill-cron
+```
+
+選 `4. Telegram 設定`，它會一步一步問你要什麼：
+
+1. **Bot Token** — 去 Telegram 找 [@BotFather](https://t.me/BotFather)，發 `/newbot`，它會給你一串 `123:ABC...` 的 token
+2. **Chat ID** — 去 Telegram 找 [@userinfobot](https://t.me/userinfobot)，發 `/start`，它會回你一個數字
+
+貼進去，選「發送測試訊息」，手機叮一聲就對了。
+
+### Step 3：設排程
 
 ```
 /skill-cron
 ```
 
-選 `4. Telegram 設定` → `a. 設定 Token + Channel`，依序輸入：
-
-- **Bot Token** — 在 Telegram 找 [@BotFather](https://t.me/BotFather)，發 `/newbot` 建立一個 bot，拿到 token
-- **Chat ID** — 在 Telegram 找 [@userinfobot](https://t.me/userinfobot)，發 `/start`，拿到你的數字 ID
-
-設定完會詢問是否發送測試訊息，確認能收到就 OK。
-
-### Step 3：註冊排程
-
-在 Claude Code 中：
-
-```
-/skill-cron
-```
-
-選 `2. 新增排程`，用自然語言描述排程時間，例如：
-
-```
-平日 9:00, 13:00 每天 23:00
-```
-
-Claude 會自動轉換成 cron 表達式、顯示確認表格，確認後寫入系統 crontab。
-
-### 原版排程對照
-
-原版 banini-tracker 的排程是：
-
-| 排程 | 時間（台北） | 原版做法 | skill-cron 輸入 |
-|------|------------|---------|----------------|
-| 盤中 | 週一~五 09:07-13:07 每 30 分 | node-cron | `平日 9:07, 9:37, 10:07, 10:37, 11:07, 11:37, 12:07, 12:37, 13:07` |
-| 盤後 | 每天 23:03 | node-cron | `每天 23:03` |
-
-你可以完全照搬，也可以自訂。例如簡化為：
+選 `2. 新增排程`，用人話描述你要的時間。不用寫 cron 語法，那是給機器看的：
 
 ```
 平日 9:00, 13:00, 23:00
 ```
 
----
+Claude 會自己翻譯成 cron、列表格給你看、你說 OK 它才寫入 crontab。
 
-## 各層獨立，自由組合
+### 想照搬原版的排程？
 
-```
-┌─────────────────────────────────────────┐
-│  Layer 1：/banini（核心）                │
-│  手動跑一次，看結果                       │
-│  ✓ 只裝 banini 就能用                    │
-├─────────────────────────────────────────┤
-│  Layer 2：+ skill-cron（排程）           │
-│  自動定時執行                            │
-│  ✓ 需額外安裝 skill-cron                 │
-├─────────────────────────────────────────┤
-│  Layer 3：+ Telegram（通知）             │
-│  結果推送到手機                           │
-│  ✓ 需在 skill-cron 中設定 Telegram       │
-└─────────────────────────────────────────┘
-```
+| 原版 | 時間 | 你可以輸入 |
+|------|------|----------|
+| 盤中 | 週一~五 09:07-13:07 每 30 分 | `平日 9:07, 9:37, 10:07, 10:37, 11:07, 11:37, 12:07, 12:37, 13:07` |
+| 盤後 | 每天 23:03 | `每天 23:03` |
 
-每一層都是選配。只裝 Layer 1 就是一個完全可用的反指標分析工具。
+或者你可以簡化。巴逆逆不是每 30 分鐘都在發廢文。
 
 ---
 
 ## 費用比較
 
-| | 原版 | 本 skill |
+| | 原版 | 這個 skill |
 |---|---|---|
-| 爬蟲 | Apify ~$10.5/月 | 免費 |
-| LLM | DeepInfra ~$1/月 | Claude Max 訂閱內 |
-| 部署 | 需長駐 Node.js | 系統 crontab |
-| **月成本** | **~$11** | **$0** |
+| 爬蟲 | Apify ~$10.5/月 | 你的電腦跑 Chromium，免費 |
+| LLM | DeepInfra ~$1/月 | Claude 自己就是 LLM，Max 訂閱內 |
+| 部署 | 需要一台一直開著的機器跑 Node.js | 系統 crontab，關機前都會跑 |
+| **月成本** | **~$11** | **$0**，除非你算電費 |
 
 ---
 
-## 常見問題
+## 東西壞了怎麼辦
 
-### Q: 爬蟲跑不動 / 沒抓到貼文
+### 爬蟲跑不動
 
-Playwright 需要 Chromium。確認已安裝：
+十之八九是 Chromium 沒裝：
 
 ```bash
 python3 -m playwright install chromium
 ```
 
-如果被 Threads 封鎖（通常不會，家用 IP 不太會觸發），等幾小時再試。
+如果裝了還是不行，可能是 Threads 改版了。這件事遲早會發生 — Meta 的工程師總是需要一些存在感。開 issue 或自己改 `scrape_threads.py`，核心邏輯就是攔截 GraphQL response 然後 parse JSON。
 
-### Q: crontab 排程沒觸發
+### 排程沒在跑
 
-檢查 log：
+看 log：
 
 ```bash
-ls ~/.claude/logs/skill-cron/
 cat ~/.claude/logs/skill-cron/banini-*.log
 ```
 
-常見問題：
-- `claude: command not found` → cron_runner.sh 的 PATH 設定問題，確認 `~/.local/bin` 在 PATH 中
-- 沒有 log 檔 → crontab 沒寫入，跑 `/skill-cron` 選 `sync`
+- 看到 `claude: command not found` → crontab 找不到 claude binary，`cron_runner.sh` 裡的 PATH 可能需要調整
+- 看到 `Not logged in` → crontab 環境缺少 `USER` 或 `SHELL` 環境變數，`cron_runner.sh` 裡已經有修正，確認你用的是最新版
+- 連 log 檔都沒有 → crontab 根本沒寫入，跑 `/skill-cron` 選 `sync`
 
-### Q: Telegram 收不到通知
+### Telegram 收不到
 
-```
-/skill-cron
-```
+跑 `/skill-cron` → `4. Telegram 設定` → `b. 發送測試訊息`。
 
-選 `4. Telegram 設定` → `b. 發送測試訊息`，確認 token 和 chat ID 正確。
+如果測試訊息也收不到，token 或 chat ID 填錯了。重新設定一次。
 
-### Q: 可以追蹤其他人嗎？
+### 我想追蹤別人
 
-可以。`/banini` 預設追蹤 `banini31`，但爬蟲支援任何 Threads 帳號。修改 SKILL.md 裡的 username 或 headless-prompt 即可。
+改 SKILL.md 裡的 username 就好。爬蟲支援任何 Threads 帳號。不過反指標分析的 prompt 是針對巴逆逆寫的 — 如果你要追蹤的人不是股海冥燈，分析結果可能會很好笑。
