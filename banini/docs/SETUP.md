@@ -8,15 +8,19 @@
 
 ```bash
 git clone https://github.com/KerberosClaw/kc_ai_skills.git
-cp -r kc_ai_skills/banini ~/.claude/skills/
+ln -sfn "$(pwd)/kc_ai_skills/banini" ~/.claude/skills/banini
+# 或者 cp -r kc_ai_skills/banini ~/.claude/skills/ 也可以，symlink 只是比較好跟 git pull
 ```
 
-### 2. 裝依賴
+### 2. 建 venv + 裝依賴
 
 ```bash
-pip3 install playwright parsel nested-lookup jmespath
-python3 -m playwright install chromium
+python3 -m venv ~/.claude/skills/banini/.venv
+~/.claude/skills/banini/.venv/bin/pip install playwright parsel nested-lookup jmespath
+~/.claude/skills/banini/.venv/bin/python -m playwright install chromium
 ```
+
+為什麼要 venv 不直接 `pip3 install`？因為新版 Homebrew Python 會把自己標記為 externally-managed，全域和 `--user` 安裝都會被 PEP 668 擋掉。venv 是 Python 生態對這件事的標準答案，完全不碰 host Python、每個 skill 一個隔離環境、要砍掉重來直接 `rm -rf .venv`。
 
 對，你需要下載一整個 Chromium。因為 Threads 是純 client-side rendering — 用 `curl` 抓到的只有一坨 CSS 變數和 React bootstrap，連一個字的貼文內容都沒有。我們試過了。
 
@@ -118,7 +122,7 @@ Claude 會自己翻譯成 cron、列表格給你看、你說 OK 它才寫入 cro
 十之八九是 Chromium 沒裝：
 
 ```bash
-python3 -m playwright install chromium
+~/.claude/skills/banini/.venv/bin/python -m playwright install chromium
 ```
 
 如果裝了還是不行，可能是 Threads 改版了。這件事遲早會發生 — Meta 的工程師總是需要一些存在感。開 issue 或自己改 `scrape_threads.py`，核心邏輯就是攔截 GraphQL response 然後 parse JSON。

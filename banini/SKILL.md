@@ -3,7 +3,7 @@ name: banini
 description: "巴逆逆（8zz）反指標追蹤器 — 抓取 Threads 貼文並進行台股反指標分析。Use when user says '/banini', '巴逆逆', '反指標', '冥燈' or similar."
 version: 0.1.0
 headless-prompt: |
-  Run python3 ~/.claude/skills/banini/scripts/scrape_threads.py banini31 5, parse the JSON output, then perform 反指標 contrarian analysis. Rules: 買入=可能跌, 停損=可能反彈, 被套=續跌, 看多=可能跌, 看空=可能漲, 買put=可能飆漲. Output a CONCISE report in Traditional Chinese, optimized for Telegram reading. Format:
+  Run ~/.claude/skills/banini/.venv/bin/python ~/.claude/skills/banini/scripts/scrape_threads.py banini31 5, parse the JSON output, then perform 反指標 contrarian analysis. Rules: 買入=可能跌, 停損=可能反彈, 被套=續跌, 看多=可能跌, 看空=可能漲, 買put=可能飆漲. Output a CONCISE report in Traditional Chinese, optimized for Telegram reading. Format:
   1) 一句話總結（今日冥燈狀態）
   2) 冥燈指數 N/10
   3) 標的表格（標的 | 她的動作 | 反指標方向 | 信心），每列一行，不要用 markdown table
@@ -27,16 +27,17 @@ headless-prompt: |
 
 ## Prerequisites Check
 
-執行前確認 Playwright 環境：
+執行前確認 venv 與 Playwright 環境：
 
 ```bash
-python3 -c "from playwright.async_api import async_playwright; from nested_lookup import nested_lookup; from parsel import Selector; print('OK')"
+${CLAUDE_SKILL_DIR}/.venv/bin/python -c "from playwright.async_api import async_playwright; from nested_lookup import nested_lookup; from parsel import Selector; print('OK')"
 ```
 
-缺少套件時顯示安裝指令並停止：
+缺少 venv 或套件時顯示安裝指令並停止（首次安裝會建立隔離 venv，避免踩到 PEP 668）：
 ```bash
-pip3 install --break-system-packages playwright parsel nested-lookup jmespath
-python3 -m playwright install chromium
+python3 -m venv ${CLAUDE_SKILL_DIR}/.venv
+${CLAUDE_SKILL_DIR}/.venv/bin/pip install playwright parsel nested-lookup jmespath
+${CLAUDE_SKILL_DIR}/.venv/bin/python -m playwright install chromium
 ```
 
 ---
@@ -48,7 +49,7 @@ python3 -m playwright install chromium
 用本 skill 自帶的爬蟲腳本抓取貼文：
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/scrape_threads.py banini31 5
+${CLAUDE_SKILL_DIR}/.venv/bin/python ${CLAUDE_SKILL_DIR}/scripts/scrape_threads.py banini31 5
 ```
 
 - 輸出為 JSON array（stdout），按時間從新到舊排列
