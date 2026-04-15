@@ -3,13 +3,28 @@ name: banini
 description: "巴逆逆（8zz）反指標追蹤器 — 抓取 Threads 貼文並進行台股反指標分析。Use when user says '/banini', '巴逆逆', '反指標', '冥燈' or similar."
 version: 0.1.0
 headless-prompt: |
-  Run ~/.claude/skills/banini/.venv/bin/python ~/.claude/skills/banini/scripts/scrape_threads.py banini31 5, parse the JSON output, then perform 反指標 contrarian analysis. Rules: 買入=可能跌, 停損=可能反彈, 被套=續跌, 看多=可能跌, 看空=可能漲, 買put=可能飆漲. Output a CONCISE report in Traditional Chinese, optimized for Telegram reading. Format:
-  1) 一句話總結（今日冥燈狀態）
-  2) 冥燈指數 N/10
-  3) 標的表格（標的 | 她的動作 | 反指標方向 | 信心），每列一行，不要用 markdown table
-  4) 一段 2-3 句的綜合判斷
-  5) 分隔線後，附上 3-5 則關鍵原文摘錄（只取投資相關的），格式：「原文節錄」— 讚數
-  End with 僅供娛樂參考，不構成投資建議. Keep total output under 3000 chars.
+  Run ~/.claude/skills/banini/.venv/bin/python ~/.claude/skills/banini/scripts/scrape_threads.py banini31 5, parse the JSON output, then perform 反指標 contrarian analysis. Rules: 買入=可能跌, 停損=可能反彈, 被套=續跌, 看多=可能跌, 看空=可能漲, 買put=可能飆漲. Output a CONCISE report in Traditional Chinese for Telegram. Use emojis, plain text only (NO asterisks **, NO backticks, NO markdown headers #). Use EXACTLY this format with blank lines between sections:
+  
+  🔮 [一句話總結今日冥燈狀態]
+  🕯 冥燈指數：N/10
+  
+  📡 關鍵訊號掃描：
+  ⬇️ [標的] — [反指標方向] ★★★（每個標的一行，★ 數代表信心 1-5 顆）
+  
+  ⚠️ 今日涉及個股/族群：
+  [列出貼文中提到的個股與族群名稱，一行逗號分隔]
+  
+  📊 冥燈綜合研判：
+  [2-3 句分析，含多空訊號比例與最強訊號說明]
+  
+  ─────────────
+  🗣 關鍵原文摘錄：
+  「[原文]」— [讚數] 讚
+  （列 3-5 則，只取投資相關）
+  
+  ⚠️ 僅供娛樂參考，不構成投資建議
+  
+  Keep total output under 3000 chars.
 ---
 
 # banini

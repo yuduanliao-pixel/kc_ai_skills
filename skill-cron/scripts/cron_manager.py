@@ -3,20 +3,7 @@
 skill-cron manager — manage scheduled skill jobs + Telegram push
 
 Config: ~/.claude/configs/skill-cron.json
-Scheduler: macOS launchd (LaunchAgents) — crontab lacks the user session
-           context required for claude -p to authenticate via OAuth.
-
-Usage:
-    python3 cron_manager.py list
-    python3 cron_manager.py add <skill> <cron_expr> <label>
-    python3 cron_manager.py remove <job_id>
-    python3 cron_manager.py enable <job_id>
-    python3 cron_manager.py disable <job_id>
-    python3 cron_manager.py telegram-set <bot_token> <channel_id>
-    python3 cron_manager.py telegram-test
-    python3 cron_manager.py telegram-remove
-    python3 cron_manager.py run <job_id>          # manual trigger
-    python3 cron_manager.py sync                  # sync config → launchd
+Scheduler: macOS launchd (LaunchAgents) or Windows Task Scheduler.
 """
 import json
 import os
@@ -32,9 +19,11 @@ from datetime import datetime
 CONFIG_DIR = Path.home() / ".claude" / "configs"
 CONFIG_FILE = CONFIG_DIR / "skill-cron.json"
 SKILL_DIR = Path.home() / ".claude" / "skills"
-RUNNER_SCRIPT = Path(__file__).parent / "cron_runner.sh"
+IS_WINDOWS = sys.platform.startswith("win")
+RUNNER_SCRIPT = Path(__file__).parent / ("cron_runner.ps1" if IS_WINDOWS else "cron_runner.sh")
 LAUNCHD_DIR = Path.home() / "Library" / "LaunchAgents"
 LAUNCHD_PREFIX = "com.skill-cron."
+SCHTASKS_PREFIX = "skill-cron-"
 
 
 # ── Config ──────────────────────────────────────────────────
@@ -42,15 +31,25 @@ LAUNCHD_PREFIX = "com.skill-cron."
 def load_config() -> dict:
     if not CONFIG_FILE.exists():
         return {"telegram": {}, "jobs": []}
-    with open(CONFIG_FILE) as f:
+    with open(CONFIG_FILE, encoding="utf-8") as f:
         return json.load(f)
 
 
 def save_config(config: dict) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    with open(CONFIG_FILE, "w") as f:
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
+    if not IS_WINDOWS:
+        CONFIG_FILE.chmod(0o600)
     print(f"[config] saved: {CONFIG_FILE}")
+
+
+def get_python_cmd() -> str:
+    return "python" if IS_WINDOWS else "python3"
+
+
+def windows_task_name(job_id: str, index: int) -> str:
+    return f"{SCHTASKS_PREFIX}{job_id}-{index}"
 
 
 # ── Skill resolution ───────────────────────────────────────
@@ -70,7 +69,7 @@ def read_headless_prompt(skill_name: str) -> str | None:
         return None
 
     skill_md = skill_path / "SKILL.md"
-    content = skill_md.read_text()
+    content = skill_md.read_text(encoding="utf-8")
 
     # Parse YAML frontmatter
     if not content.startswith("---"):
@@ -100,8 +99,9 @@ def read_headless_prompt(skill_name: str) -> str | None:
 
 def make_job_id(skill: str, label: str) -> str:
     """Generate a job ID from skill name and label."""
+    clean_skill = re.sub(r'[^a-zA-Z0-9\u4e00-\u9fff]', '-', skill).strip('-')
     clean_label = re.sub(r'[^a-zA-Z0-9\u4e00-\u9fff]', '-', label).strip('-')
-    return f"{skill}-{clean_label}" if clean_label else skill
+    return f"{clean_skill}-{clean_label}" if clean_label else clean_skill
 
 
 def cmd_add(args: list[str]) -> None:
@@ -125,7 +125,7 @@ def cmd_add(args: list[str]) -> None:
     if not prompt:
         print(f"[error] skill '{skill}' has no headless-prompt in SKILL.md frontmatter")
         print(f"[hint] add this to {SKILL_DIR / skill / 'SKILL.md'} frontmatter:")
-        print(f'  headless-prompt: "Run python3 ... and analyze the output"')
+        print(f'  headless-prompt: "Run python ... and analyze the output"')
         sys.exit(1)
 
     config = load_config()
@@ -136,6 +136,14 @@ def cmd_add(args: list[str]) -> None:
         print(f"[error] job already exists: {job_id}")
         sys.exit(1)
 
+    task_names = []
+    if IS_WINDOWS:
+        intervals = parse_cron_to_task_intervals(cron_expr)
+        if not intervals:
+            print(f"[error] unsupported cron expression for Windows Task Scheduler: {cron_expr}")
+            sys.exit(1)
+        task_names = [windows_task_name(job_id, idx + 1) for idx in range(len(intervals))]
+
     job = {
         "id": job_id,
         "skill": skill,
@@ -143,11 +151,12 @@ def cmd_add(args: list[str]) -> None:
         "label": label,
         "enabled": True,
         "created": datetime.now().isoformat(),
+        "task_names": task_names,
     }
 
     config["jobs"].append(job)
     save_config(config)
-    sync_launchd(config)
+    sync_schedule(config)
     print(f"[added] {job_id}: {cron_expr} ({label})")
 
 
@@ -166,7 +175,7 @@ def cmd_remove(args: list[str]) -> None:
         sys.exit(1)
 
     save_config(config)
-    sync_launchd(config)
+    sync_schedule(config)
     print(f"[removed] {job_id}")
 
 
@@ -182,7 +191,7 @@ def cmd_enable_disable(args: list[str], enabled: bool) -> None:
         if job["id"] == job_id:
             job["enabled"] = enabled
             save_config(config)
-            sync_launchd(config)
+            sync_schedule(config)
             print(f"[{'enabled' if enabled else 'disabled'}] {job_id}")
             return
 
@@ -273,7 +282,184 @@ def send_telegram(bot_token: str, channel_id: str, text: str) -> bool:
         return False
 
 
-# ── launchd sync ──────────────────────────────────────────
+# ── scheduler sync ─────────────────────────────────────────
+
+def parse_cron_to_task_intervals(cron_expr: str) -> list[dict]:
+    """Convert a cron expression to Windows Task Scheduler intervals.
+
+    Supports standard 5-field cron: minute hour dom month dow
+    Handles comma-separated values and ranges (e.g. 1-5, 9-12).
+    Only explicit hour/minute values are supported for Windows.
+    """
+    parts = cron_expr.strip().split()
+    if len(parts) != 5:
+        return []
+
+    def expand_field(field: str, lo_bound: int, hi_bound: int) -> list[int] | None:
+        if field == "*":
+            return None
+        values = set()
+        for token in field.split(","):
+            if "-" in token:
+                try:
+                    lo, hi = token.split("-", 1)
+                    lo_val, hi_val = int(lo), int(hi)
+                except ValueError:
+                    return []
+                if not (lo_bound <= lo_val <= hi_bound and lo_bound <= hi_val <= hi_bound):
+                    return []
+                values.update(range(lo_val, hi_val + 1))
+            elif token.isdigit():
+                val = int(token)
+                if not (lo_bound <= val <= hi_bound):
+                    return []
+                values.add(val)
+            else:
+                return []
+        return sorted(values)
+
+    minutes = expand_field(parts[0], 0, 59)
+    hours = expand_field(parts[1], 0, 23)
+    dom = parts[2]
+    month = parts[3]
+    weekdays = expand_field(parts[4], 0, 7)
+
+    if dom != "*" or month != "*":
+        return []
+    if minutes is None or hours is None:
+        return []
+
+    intervals = []
+    for h in hours:
+        for m in minutes:
+            intervals.append({"Hour": h, "Minute": m, "Weekdays": weekdays})
+    return intervals
+
+
+def cron_weekdays_to_schtasks_days(days: list[int] | None) -> str | None:
+    if days is None:
+        return None
+
+    normalized = {0 if d in (0, 7) else d for d in days}
+    if normalized == {0, 1, 2, 3, 4, 5, 6}:
+        return None
+
+    names = {0: "SUN", 1: "MON", 2: "TUE", 3: "WED", 4: "THU", 5: "FRI", 6: "SAT"}
+    ordered = sorted(normalized, key=lambda d: 7 if d == 0 else d)
+    return ",".join(names[d] for d in ordered)
+
+
+def delete_windows_task(task_name: str) -> None:
+    subprocess.run(
+        ["schtasks", "/Delete", "/TN", task_name, "/F"],
+        capture_output=True,
+        text=True,
+    )
+
+
+def disable_windows_task(task_name: str) -> None:
+    subprocess.run(
+        ["schtasks", "/Change", "/TN", task_name, "/DISABLE"],
+        capture_output=True,
+        text=True,
+    )
+
+
+def enable_windows_task(task_name: str) -> None:
+    subprocess.run(
+        ["schtasks", "/Change", "/TN", task_name, "/ENABLE"],
+        capture_output=True,
+        text=True,
+    )
+
+
+def create_windows_tasks(job: dict, intervals: list[dict], enabled: bool) -> int:
+    created = 0
+    for idx, interval in enumerate(intervals, start=1):
+        task_name = windows_task_name(job["id"], idx)
+        delete_windows_task(task_name)
+
+        schedule = cron_weekdays_to_schtasks_days(interval["Weekdays"])
+        if schedule is None:
+            sc_args = ["/SC", "DAILY"]
+        else:
+            sc_args = ["/SC", "WEEKLY", "/D", schedule]
+
+        command = (
+            f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{RUNNER_SCRIPT}" '
+            f'-JobId "{job["id"]}"'
+        )
+
+        result = subprocess.run(
+            [
+                "schtasks",
+                "/Create",
+                "/TN",
+                task_name,
+                "/TR",
+                command,
+                *sc_args,
+                "/ST",
+                f"{interval['Hour']:02d}:{interval['Minute']:02d}",
+                "/F",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            print(f"[schtasks] failed creating {task_name}: {result.stderr.strip()}")
+            continue
+
+        if not enabled:
+            disable_windows_task(task_name)
+
+        created += 1
+    return created
+
+
+def delete_job_tasks(job: dict) -> None:
+    task_names = job.get("task_names") or []
+    if not task_names:
+        intervals = parse_cron_to_task_intervals(job["cron"])
+        task_names = [windows_task_name(job["id"], idx + 1) for idx in range(len(intervals))]
+
+    for task_name in task_names:
+        delete_windows_task(task_name)
+
+
+def sync_windows(config: dict) -> None:
+    loaded = 0
+    updated = False
+
+    for job in config.get("jobs", []):
+        delete_job_tasks(job)
+
+        if not job.get("enabled", True):
+            continue
+
+        prompt = read_headless_prompt(job["skill"])
+        if not prompt:
+            continue
+
+        intervals = parse_cron_to_task_intervals(job["cron"])
+        if not intervals:
+            print(f"[error] unsupported cron expression for Windows Task Scheduler: {job['cron']}")
+            continue
+
+        task_names = [windows_task_name(job["id"], idx + 1) for idx in range(len(intervals))]
+        if job.get("task_names") != task_names:
+            job["task_names"] = task_names
+            updated = True
+
+        created = create_windows_tasks(job, intervals, job.get("enabled", True))
+        loaded += created
+
+    if updated:
+        save_config(config)
+
+    print(f"[schtasks] synced ({loaded} tasks)")
+
 
 def parse_cron_to_calendar_intervals(cron_expr: str) -> list[dict]:
     """Convert a cron expression to launchd StartCalendarInterval dicts.
@@ -285,28 +471,45 @@ def parse_cron_to_calendar_intervals(cron_expr: str) -> list[dict]:
     if len(parts) != 5:
         return []
 
-    def expand_field(field: str) -> list[int] | None:
-        """Expand a cron field to a list of ints, or None for '*'."""
+    def expand_field(field: str, lo_bound: int, hi_bound: int) -> list[int] | None:
+        """Expand a cron field to a list of ints, or None for '*'.
+        Returns [] on unsupported syntax (step expressions, out-of-range values).
+        """
         if field == "*":
             return None
         values = set()
         for token in field.split(","):
             if "-" in token:
-                lo, hi = token.split("-", 1)
-                values.update(range(int(lo), int(hi) + 1))
+                try:
+                    lo, hi = token.split("-", 1)
+                    lo_val, hi_val = int(lo), int(hi)
+                except ValueError:
+                    return []
+                if not (lo_bound <= lo_val <= hi_bound and lo_bound <= hi_val <= hi_bound):
+                    return []
+                values.update(range(lo_val, hi_val + 1))
+            elif token.isdigit():
+                val = int(token)
+                if not (lo_bound <= val <= hi_bound):
+                    return []
+                values.add(val)
             else:
-                values.add(int(token))
+                return []  # step expressions (*/5) or other unsupported syntax
         return sorted(values)
 
-    minutes = expand_field(parts[0])
-    hours = expand_field(parts[1])
+    minutes = expand_field(parts[0], 0, 59)
+    hours = expand_field(parts[1], 0, 23)
     # dom and month are rarely used in skill-cron, skip for now
-    weekdays = expand_field(parts[4])
+    weekdays = expand_field(parts[4], 0, 7)
+
+    # [] means invalid input (e.g. step syntax, out-of-range); None means '*' (wildcard)
+    if minutes == [] or hours == [] or weekdays == []:
+        return []
 
     # Build cartesian product of all specified values
-    minute_list = minutes if minutes else [None]
-    hour_list = hours if hours else [None]
-    weekday_list = weekdays if weekdays else [None]
+    minute_list = minutes if minutes is not None else [None]
+    hour_list = hours if hours is not None else [None]
+    weekday_list = weekdays if weekdays is not None else [None]
 
     intervals = []
     for m in minute_list:
@@ -388,9 +591,16 @@ def sync_launchd(config: dict) -> None:
     print(f"[launchd] synced ({loaded} jobs)")
 
 
+def sync_schedule(config: dict) -> None:
+    if IS_WINDOWS:
+        sync_windows(config)
+    else:
+        sync_launchd(config)
+
+
 def cmd_sync(_args: list[str]) -> None:
     config = load_config()
-    sync_launchd(config)
+    sync_schedule(config)
 
 
 # ── Manual run ─────────────────────────────────────────────
@@ -471,7 +681,7 @@ if __name__ == "__main__":
         print("  telegram-test                     Send test message")
         print("  telegram-remove                   Remove Telegram credentials")
         print("  run <job_id>                      Manually trigger a job")
-        print("  sync                              Sync config → launchd")
+        print("  sync                              Sync config → scheduler")
         sys.exit(0)
 
     cmd = sys.argv[1]

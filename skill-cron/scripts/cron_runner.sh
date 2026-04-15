@@ -45,7 +45,8 @@ if [ -f "$CONFIG_FILE" ]; then
 
     if [ -n "$BOT_TOKEN" ] && [ -n "$CHANNEL_ID" ]; then
         # Split long messages into chunks at paragraph boundaries (Telegram 4096 limit)
-        echo "$OUTPUT" | python3 - "$BOT_TOKEN" "$CHANNEL_ID" <<'PYEOF'
+        JOB_LABEL=$(python3 -c "import json; c=json.load(open('$CONFIG_FILE')); job=next((j for j in c.get('jobs',[]) if j['id']=='$JOB_ID'), {}); print(job.get('label',''))" 2>/dev/null)
+        printf '%s\n\n%s' "<b>[${JOB_LABEL}]</b>" "$OUTPUT" | python3 - "$BOT_TOKEN" "$CHANNEL_ID" <<'PYEOF'
 import json, sys, urllib.request, time
 
 text = sys.stdin.read().strip()
@@ -65,7 +66,7 @@ if text:
     chunks.append(text)
 
 for i, chunk in enumerate(chunks):
-    data = json.dumps({"chat_id": channel_id, "text": chunk, "disable_web_page_preview": True}).encode()
+    data = json.dumps({"chat_id": channel_id, "text": chunk, "parse_mode": "HTML", "disable_web_page_preview": True}).encode()
     req = urllib.request.Request(
         f"https://api.telegram.org/bot{bot_token}/sendMessage",
         data=data, headers={"Content-Type": "application/json"})

@@ -1,6 +1,6 @@
 # skill-cron — 因為 `claude -p "/banini"` 會卡住
 
-> **English summary:** Design doc for skill-cron, a launchd-based scheduler for Claude Code skills. Born from discovering that `claude -p "/skill"` hangs silently — skills only work in interactive mode. Solution: a `headless-prompt` field in SKILL.md frontmatter + a runner script. Uses macOS launchd (not crontab) because `claude -p` needs the user's login session for OAuth — crontab runs in a bare daemon context without it. Includes Telegram push via urllib and auto-rotating logs.
+> **English summary:** Design doc for skill-cron, a cross-platform scheduler for Claude Code skills. Born from discovering that `claude -p "/skill"` hangs silently — skills only work in interactive mode. Solution: a `headless-prompt` field in SKILL.md frontmatter + a runner script. Uses macOS launchd or Windows Task Scheduler because `claude -p` needs the user's login session for OAuth. Includes Telegram push via urllib and auto-rotating logs.
 
 ## 這東西為什麼存在
 
@@ -24,7 +24,7 @@ claude -p "/banini"
 
 ```bash
 # 這個能跑
-claude -p "Run python3 ~/.claude/skills/banini/scripts/scrape_threads.py banini31 5, then analyze..."
+claude -p "Run python ~/.claude/skills/banini/scripts/scrape_threads.py banini31 5, then analyze..."  # Windows, use python; macOS/Linux 可改成 python3
 ```
 
 但你不可能把這種一百字的 prompt 塞進排程設定。於是 skill-cron 誕生了。
@@ -55,7 +55,7 @@ skill-cron（管理器）
 ```yaml
 ---
 name: banini
-headless-prompt: "Run python3 ~/.claude/skills/banini/scripts/scrape_threads.py banini31 5, then analyze..."
+headless-prompt: "Run python ~/.claude/skills/banini/scripts/scrape_threads.py banini31 5, then analyze..."  # Windows, use python; macOS/Linux 可改成 python3
 ---
 ```
 
@@ -164,7 +164,7 @@ skill-cron 在 `~/Library/LaunchAgents/` 下管理以 `com.skill-cron.` 為前�
 
 ## 限制
 
-1. **macOS only** — 用的是 launchd LaunchAgent，Linux 需要改用 systemd timer 或其他方案
+1. **macOS / Windows** — macOS 使用 launchd LaunchAgent，Windows 使用 Task Scheduler；Linux 仍需要改用 systemd timer 或其他方案。
 2. **Mac 要登入** — LaunchAgent 只在使用者登入時執行。關機、登出就不會跑
 3. **Claude Max 訂閱** — `claude -p` 需要有效的 OAuth 登入狀態。token 過期了要重新 `claude login`
 4. **Telegram 4096 字元** — 超長報告會被截斷。但說真的，你不需要在手機上看一萬字的分析報告

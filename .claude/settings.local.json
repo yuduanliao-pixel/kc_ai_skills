@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -)",
+      "Bash(python \"C:/Users/sogo7/.claude/skills/skill-cron/scripts/cron_manager.py\" add banini \"0 9 * * 1-5\" \"冒燈監測-1\")",
+      "Bash(python \"C:/Users/sogo7/.claude/skills/skill-cron/scripts/cron_manager.py\" add banini \"0 13 * * 1-5\" \"冒燈監測-2\")",
+      "Bash(python \"C:/Users/sogo7/.claude/skills/skill-cron/scripts/cron_manager.py\" add banini \"0 23 * * 1-5\" \"冒燈監測-3\")",
+      "Bash(python -c \"import json; from pathlib import Path; c=json.load\\(open\\(Path.home\\(\\)/'.claude'/'configs'/'skill-cron.json', encoding='utf-8'\\)\\); [print\\(j['id'], '|', j['cron'], '|', j['label']\\) for j in c['jobs']]\")",
+      "Bash(python -c \"f=open\\(r'C:\\\\Users\\\\sogo7\\\\.claude\\\\configs\\\\skill-cron.json','rb'\\); print\\(f.read\\(\\)[200:350]\\)\")",
+      "Bash(schtasks /Query /FO LIST /TN \"skill-cron-banini\")",
+      "Bash(schtasks /Query /FO CSV)",
+      "Bash(python -c \"import sys; [print\\(l.strip\\(\\)\\) for l in sys.stdin if 'skill-cron' in l]\")",
+      "Bash(python -c ':*)",
+      "Bash(cmd /c \"schtasks /Query /FO LIST\")",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\sogo7\\\\.claude\\\\skills\\\\skill-cron\\\\scripts\\\\cron_runner.ps1\" -JobId \"banini-冒燈監測-1\")",
+      "Bash(powershell.exe -Command ':*)",
+      "Bash(powershell.exe -Command 'Get-Content \\(Join-Path $env:USERPROFILE '\\\\''.claude\\\\skills\\\\banini\\\\SKILL.md'\\\\''\\) -Encoding UTF8 | Select-Object -First 20')",
+      "Bash(powershell.exe -Command 'Get-Content \\(Join-Path $env:USERPROFILE '\\\\''.claude\\\\skills\\\\banini\\\\SKILL.md'\\\\''\\) -Encoding UTF8 | Select-Object -First 30')",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\\\Claude\\\\8nini\\\\skill-cron\\\\scripts\\\\cron_runner.ps1\" -JobId \"banini-冒燈監測-3\")"
+    ]
+  }
+}
